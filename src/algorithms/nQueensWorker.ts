@@ -58,25 +58,38 @@ function evaluatePopulation(): void {
 }
 
 // Calculate fitness for a specific genome
-// Counts non-attacking pairs of queens
+// Fitness is based on non-attacking pairs of queens
 function calculateFitness(genome: number[]): number {
   const n = genome.length;
-  const maxPairs = (n * (n - 1)) / 2; // Maximum number of queen pairs
+
+  // Maximum possible number of queen pairs
+  // For n queens, we have n(n-1)/2 possible pairs
+  const maxPairs = (n * (n - 1)) / 2;
+
+  // Count conflicts (attacking pairs)
   let conflicts = 0;
 
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
-      // Check if queens are in the same column or diagonal
+      // Queens attack each other if:
+      // 1. They are in the same column (genome[i] === genome[j])
+      // 2. They are on the same diagonal:
+      //    - Queens are on the same diagonal if the difference in rows equals
+      //      the difference in columns
+      //    - Row difference: j - i
+      //    - Column difference: |genome[j] - genome[i]|
       if (
-        genome[i] === genome[j] || // Same column
-        Math.abs(i - j) === Math.abs(genome[i] - genome[j]) // Diagonal
+        genome[i] === genome[j] || // Same column conflict
+        Math.abs(i - j) === Math.abs(genome[i] - genome[j]) // Diagonal conflict
       ) {
         conflicts++;
       }
     }
   }
 
-  return maxPairs - conflicts; // Return non-attacking pairs
+  // Higher fitness means better solution
+  // A perfect solution has maxPairs fitness (no conflicts)
+  return maxPairs - conflicts;
 }
 
 // Select parents based on the specified selection strategy
@@ -138,38 +151,82 @@ function tournamentSelection(): Individual {
 function mutate(individual: Individual): void {
   const n = params.boardSize;
 
-  // Apply mutation with probability based on mutation rate
-  for (let i = 0; i < n; i++) {
-    if (Math.random() <= params.mutationRate) {
-      // For each position, there's a chance to mutate
-      individual.genome[i] = Math.floor(Math.random() * n);
-    }
+  // Apply mutation based on mutation rate
+  if (Math.random() <= params.mutationRate) {
+    // For permutation-based representation, we swap positions
+    // This preserves the one-queen-per-column property
+    const pos1 = Math.floor(Math.random() * n);
+    const pos2 = Math.floor(Math.random() * n);
+
+    // Swap two positions
+    const temp = individual.genome[pos1];
+    individual.genome[pos1] = individual.genome[pos2];
+    individual.genome[pos2] = temp;
   }
 }
 
-// Perform crossover between two parents
+// Perform crossover between two parents using Partially Mapped Crossover (PMX)
 function crossover(parent1: Individual, parent2: Individual): Individual {
   if (Math.random() > params.crossoverRate) {
     // No crossover, return a copy of parent1
     return { genome: [...parent1.genome], fitness: 0 };
   }
 
-  // Two-point crossover (more effective than single-point for n-queens)
   const n = params.boardSize;
+
+  // Create arrays to track the mapping between parent genomes
+  const childGenome = Array(n).fill(-1);
+
+  // Select two random crossover points
   const point1 = Math.floor(Math.random() * (n - 1));
   const point2 = Math.floor(Math.random() * (n - point1 - 1)) + point1 + 1;
 
-  const childGenome = [];
+  // Step 1: Copy the segment between crossover points from parent1 to child
+  for (let i = point1; i <= point2; i++) {
+    childGenome[i] = parent1.genome[i];
+  }
 
+  // Step 2: Create mapping between segments
+  const mapping = new Map();
+  for (let i = point1; i <= point2; i++) {
+    mapping.set(parent1.genome[i], parent2.genome[i]);
+  }
+
+  // Step 3: Fill the remaining positions from parent2 using the mapping
   for (let i = 0; i < n; i++) {
-    if (i < point1 || i >= point2) {
-      childGenome.push(parent1.genome[i]);
-    } else {
-      childGenome.push(parent2.genome[i]);
+    // Skip the positions already filled from parent1
+    if (i >= point1 && i <= point2) continue;
+
+    // Get the value from parent2
+    let valueToMap = parent2.genome[i];
+
+    // If the value is already in the child from the parent1 segment,
+    // follow the mapping until we find an unused value
+    while (childGenome.includes(valueToMap)) {
+      valueToMap = mapping.get(valueToMap) || valueToMap;
     }
+
+    childGenome[i] = valueToMap;
   }
 
   return { genome: childGenome, fitness: 0 };
+}
+
+// Validate a genome to ensure it's a valid permutation
+function validateGenome(genome: number[]): boolean {
+  const n = genome.length;
+  const seen = new Set<number>();
+
+  // Check if all values are valid (0 to n-1) and unique
+  for (let i = 0; i < n; i++) {
+    const val = genome[i];
+    if (val < 0 || val >= n || seen.has(val)) {
+      return false;
+    }
+    seen.add(val);
+  }
+
+  return seen.size === n;
 }
 
 // Create new generation
@@ -189,8 +246,17 @@ function createNewGeneration(): void {
   while (newPopulation.length < params.populationSize) {
     const [parent1, parent2] = selectParents();
     const child = crossover(parent1, parent2);
+
+    // Apply mutation
     mutate(child);
-    newPopulation.push(child);
+
+    // Validate the child's genome before adding to population
+    if (!validateGenome(child.genome)) {
+      // If invalid, create a completely new random individual instead
+      newPopulation.push(createRandomIndividual());
+    } else {
+      newPopulation.push(child);
+    }
   }
 
   // Replace previous population
