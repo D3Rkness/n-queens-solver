@@ -34,10 +34,19 @@ function initializePopulation(): void {
 
 // Create a random individual
 function createRandomIndividual(): Individual {
+  const n = params.boardSize;
   const genome = [];
-  for (let i = 0; i < params.boardSize; i++) {
-    genome.push(Math.floor(Math.random() * params.boardSize));
+
+  // Generate a random permutation to ensure one queen per row
+  const available = Array.from({ length: n }, (_, i) => i);
+
+  for (let i = 0; i < n; i++) {
+    // Select a random column from the available ones
+    const randomIndex = Math.floor(Math.random() * available.length);
+    genome.push(available[randomIndex]);
+    available.splice(randomIndex, 1);
   }
+
   return { genome, fitness: 0 };
 }
 
@@ -100,14 +109,42 @@ function rouletteWheelSelection(): Individual {
 // Tournament selection
 function tournamentSelection(): Individual {
   let best: Individual | null = null;
-  for (let i = 0; i < params.tournamentSize; i++) {
-    const contestant =
-      population[Math.floor(Math.random() * population.length)];
+  const tournamentSize = Math.min(params.tournamentSize, population.length);
+
+  // Select random contestants for the tournament
+  const contestants = [];
+  const indices = new Set<number>();
+
+  // Ensure we select unique contestants
+  while (indices.size < tournamentSize) {
+    const idx = Math.floor(Math.random() * population.length);
+    if (!indices.has(idx)) {
+      indices.add(idx);
+      contestants.push(population[idx]);
+    }
+  }
+
+  // Find the best contestant
+  for (const contestant of contestants) {
     if (best === null || contestant.fitness > best.fitness) {
       best = contestant;
     }
   }
+
   return best!;
+}
+
+// Perform mutation on an individual
+function mutate(individual: Individual): void {
+  const n = params.boardSize;
+
+  // Apply mutation with probability based on mutation rate
+  for (let i = 0; i < n; i++) {
+    if (Math.random() <= params.mutationRate) {
+      // For each position, there's a chance to mutate
+      individual.genome[i] = Math.floor(Math.random() * n);
+    }
+  }
 }
 
 // Perform crossover between two parents
@@ -117,36 +154,38 @@ function crossover(parent1: Individual, parent2: Individual): Individual {
     return { genome: [...parent1.genome], fitness: 0 };
   }
 
-  // Single-point crossover
-  const crossoverPoint = Math.floor(Math.random() * (params.boardSize - 1)) + 1;
-  const childGenome = [
-    ...parent1.genome.slice(0, crossoverPoint),
-    ...parent2.genome.slice(crossoverPoint),
-  ];
+  // Two-point crossover (more effective than single-point for n-queens)
+  const n = params.boardSize;
+  const point1 = Math.floor(Math.random() * (n - 1));
+  const point2 = Math.floor(Math.random() * (n - point1 - 1)) + point1 + 1;
+
+  const childGenome = [];
+
+  for (let i = 0; i < n; i++) {
+    if (i < point1 || i >= point2) {
+      childGenome.push(parent1.genome[i]);
+    } else {
+      childGenome.push(parent2.genome[i]);
+    }
+  }
 
   return { genome: childGenome, fitness: 0 };
-}
-
-// Perform mutation on an individual
-function mutate(individual: Individual): void {
-  if (Math.random() <= params.mutationRate) {
-    // Select a random position and assign a new random value
-    const position = Math.floor(Math.random() * params.boardSize);
-    individual.genome[position] = Math.floor(Math.random() * params.boardSize);
-  }
 }
 
 // Create new generation
 function createNewGeneration(): void {
   const newPopulation: Individual[] = [];
-
-  // Elitism: keep the best individual
   const sortedPopulation = [...population].sort(
     (a, b) => b.fitness - a.fitness
   );
-  newPopulation.push({ ...sortedPopulation[0] });
 
-  // Create the rest of the population
+  // Elitism: keep the top individuals (10% of population)
+  const eliteCount = Math.max(1, Math.floor(params.populationSize * 0.1));
+  for (let i = 0; i < eliteCount && i < sortedPopulation.length; i++) {
+    newPopulation.push({ ...sortedPopulation[i] });
+  }
+
+  // Create the rest of the population using crossover and mutation
   while (newPopulation.length < params.populationSize) {
     const [parent1, parent2] = selectParents();
     const child = crossover(parent1, parent2);
@@ -154,8 +193,41 @@ function createNewGeneration(): void {
     newPopulation.push(child);
   }
 
+  // Replace previous population
   population = newPopulation;
   evaluatePopulation();
+
+  // Check for diversity - if population is too similar, introduce new random individuals
+  checkAndMaintainDiversity();
+}
+
+// Check population diversity and introduce new individuals if needed
+function checkAndMaintainDiversity(): void {
+  // Calculate average fitness
+  const totalFitness = population.reduce((sum, ind) => sum + ind.fitness, 0);
+  const avgFitness = totalFitness / population.length;
+
+  // Count how many individuals have exactly the same fitness as average
+  let sameCount = 0;
+  for (const ind of population) {
+    if (Math.abs(ind.fitness - avgFitness) < 0.001) {
+      sameCount++;
+    }
+  }
+
+  // If more than 70% of population has same fitness, we have low diversity
+  if (sameCount > population.length * 0.7) {
+    // Replace 30% of population with new random individuals
+    const replaceCount = Math.floor(population.length * 0.3);
+    for (let i = 0; i < replaceCount; i++) {
+      const randomIndividual = createRandomIndividual();
+      randomIndividual.fitness = calculateFitness(randomIndividual.genome);
+      // Replace a random individual (excluding the very best one)
+      const replaceIndex =
+        Math.floor(Math.random() * (population.length - 1)) + 1;
+      population[replaceIndex] = randomIndividual;
+    }
+  }
 }
 
 // Calculate statistics for current generation
