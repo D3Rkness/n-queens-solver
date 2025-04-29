@@ -1,54 +1,73 @@
-# React + TypeScript + Vite
+# N-Queens GA Solver
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### by Jonathan for Artificial Intelligence
 
-Currently, two official plugins are available:
+A browser-based interactive demo that uses a Genetic Algorithm to solve the N-Queens puzzle. Pick board size, population size, selection strategy, crossover/mutation rates, and watch the population evolve generation by generation.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## Expanding the ESLint configuration
+- **Dynamic Parameters**: Adjust N (4–50), population size, selection (roulette/tournament), crossover & mutation rates, and max generations
+- **Real-Time Visualization**:
+  - Chessboard view of the current best candidate, with attacking queens highlighted
+  - Fitness Curve (best/average/worst) updating live
+- **Controls**: Start, Pause, Reset
+- **Exports**: Copy or download the final solution as JSON or coordinate list
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Prerequisites
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- Node.js ≥ 16
+- npm or yarn
+
+## To run Locally:
+
+```
+pnpm i
+pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Usage
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **Set Parameters**
+   - Board Size (N): number of queens/rows
+   - Population Size: number of candidate solutions per generation
+   - Selection Strategy:
+     - Roulette Wheel (fitness-proportional)
+     - Tournament (set tournament size K)
+   - Crossover Rate: probability [0.00–1.00] of recombining parents
+   - Mutation Rate: probability [0.00–1.00] of swapping two genes
+   - Max Generations: stop if no solution by this limit
+2. **Controls**
+   - Start: begin evolving
+   - Pause: halt evolution
+   - Reset: re-initialize population (with current parameters)
+3. **Visualization**
+   - Chessboard: shows the best genome each generation; attacking queens turn red
+   - Fitness Chart: real-time line plot of best, average, and worst fitness
+   - Solution Info: once solved (fitness = N·(N–1)/2), copy or download results
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+## Implementation Details
+
+This app directly implements and visualizes the concepts from "Genetic Algorithms" lecture:
+
+- **Genetic Encoding & Initialization**
+
+  - Uses a permutation genome [g0…gN–1] to enforce one queen per row/column
+
+- **Fitness Assignment**
+
+  - Computes fitness as maxPairs – conflicts (pair-wise diagonal and column attacks) mirroring the lecture's evaluation function
+
+- **Selection Strategies**
+
+  - Implements both Roulette Wheel (fitness-proportional) and Tournament selection
+
+- **Crossover & Mutation**
+
+  - Uses Partially Mapped Crossover (PMX) to maintain valid permutations and swap-based mutation
+
+- **Elitism & Diversity Controls**
+
+  - Retains top 10% (elitism) and introduces random individuals if diversity drops—an extension of "reproduce" pseudocode to avoid premature convergence
+
+- **Loop & Termination**
+  - Matches the lecture's "while generation count is within limit" pseudocode, stopping on perfect fitness or max iterations
