@@ -4,6 +4,8 @@
 
 A browser-based interactive demo that uses a Genetic Algorithm to solve the N-Queens puzzle. Pick board size, population size, selection strategy, crossover/mutation rates, and watch the population evolve generation by generation.
 
+Link: https://d3rkness.github.io/n-queens-solver/
+
 ## Features
 
 - **Dynamic Parameters**: Adjust N (4–50), population size, selection (roulette/tournament), crossover & mutation rates, and max generations
