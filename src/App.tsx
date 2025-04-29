@@ -18,20 +18,10 @@ function App() {
     start,
     pause,
     reset,
-    saveConfig,
-    loadConfig,
-    getSavedConfigs,
   } = useNQueensWorker();
 
   // Keep track of all stats for charting
   const [allStats, setAllStats] = useState<GenerationStats[]>([]);
-
-  // Get saved configurations from localStorage
-  const [savedConfigs, setSavedConfigs] = useState({});
-
-  useEffect(() => {
-    setSavedConfigs(getSavedConfigs());
-  }, [getSavedConfigs]);
 
   // Update stats history when new stats arrive
   useEffect(() => {
@@ -53,15 +43,6 @@ function App() {
   // Get the current best genome to display
   const currentGenome =
     stats?.bestGenome || solution?.genome || Array(params.boardSize).fill(0);
-
-  // Handle saving configuration
-  const handleSaveConfig = (name: string) => {
-    const success = saveConfig(name);
-    if (success) {
-      setSavedConfigs(getSavedConfigs());
-    }
-    return success;
-  };
 
   return (
     <div className="App">
@@ -89,9 +70,6 @@ function App() {
             onStart={start}
             onPause={pause}
             onReset={reset}
-            onSaveConfig={handleSaveConfig}
-            onLoadConfig={loadConfig}
-            savedConfigs={savedConfigs}
           />
 
           {error && (

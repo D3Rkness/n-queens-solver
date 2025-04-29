@@ -25,10 +25,30 @@ let bestSolution: Individual | null = null;
 
 // Initialize the population with random individuals
 function initializePopulation(): void {
+  console.log(
+    `Initializing population with ${params.populationSize} individuals for board size ${params.boardSize}`
+  );
+
   population = [];
+
   for (let i = 0; i < params.populationSize; i++) {
-    population.push(createRandomIndividual());
+    const individual = createRandomIndividual();
+
+    // Validate the individual
+    if (!validateGenome(individual.genome)) {
+      console.error(
+        `Generated invalid individual during initialization at index ${i}`
+      );
+      i--; // Try again for this index
+      continue;
+    }
+
+    population.push(individual);
   }
+
+  console.log(
+    `Population initialized successfully with ${population.length} valid individuals`
+  );
   evaluatePopulation();
 }
 
@@ -37,7 +57,11 @@ function createRandomIndividual(): Individual {
   const n = params.boardSize;
   const genome = [];
 
-  // Generate a random permutation to ensure one queen per row
+  // In the N-Queens representation:
+  // - The index (i) represents the row
+  // - The value (genome[i]) represents the column where the queen is placed
+  // This naturally ensures one queen per row
+  // We need a permutation to ensure one queen per column as well
   const available = Array.from({ length: n }, (_, i) => i);
 
   for (let i = 0; i < n; i++) {
@@ -73,13 +97,14 @@ function calculateFitness(genome: number[]): number {
     for (let j = i + 1; j < n; j++) {
       // Queens attack each other if:
       // 1. They are in the same column (genome[i] === genome[j])
+      //    This should not happen with our permutation representation
       // 2. They are on the same diagonal:
       //    - Queens are on the same diagonal if the difference in rows equals
       //      the difference in columns
-      //    - Row difference: j - i
-      //    - Column difference: |genome[j] - genome[i]|
+      //    - Row difference: j - i (since i and j are rows)
+      //    - Column difference: |genome[j] - genome[i]| (values are columns)
       if (
-        genome[i] === genome[j] || // Same column conflict
+        genome[i] === genome[j] || // Same column conflict (shouldn't happen with permutation)
         Math.abs(i - j) === Math.abs(genome[i] - genome[j]) // Diagonal conflict
       ) {
         conflicts++;
@@ -153,19 +178,21 @@ function mutate(individual: Individual): void {
 
   // Apply mutation based on mutation rate
   if (Math.random() <= params.mutationRate) {
-    // For permutation-based representation, we swap positions
-    // This preserves the one-queen-per-column property
-    const pos1 = Math.floor(Math.random() * n);
-    const pos2 = Math.floor(Math.random() * n);
+    // For permutation-based representation, we swap column positions
+    // Swapping maintains the one-queen-per-column property because
+    // we're just changing which row each column is assigned to
+    const row1 = Math.floor(Math.random() * n);
+    const row2 = Math.floor(Math.random() * n);
 
-    // Swap two positions
-    const temp = individual.genome[pos1];
-    individual.genome[pos1] = individual.genome[pos2];
-    individual.genome[pos2] = temp;
+    // Swap queens in two rows (which means swapping their column values)
+    const temp = individual.genome[row1];
+    individual.genome[row1] = individual.genome[row2];
+    individual.genome[row2] = temp;
   }
 }
 
 // Perform crossover between two parents using Partially Mapped Crossover (PMX)
+// This preserves the permutation property (one queen per column)
 function crossover(parent1: Individual, parent2: Individual): Individual {
   if (Math.random() > params.crossoverRate) {
     // No crossover, return a copy of parent1
@@ -174,7 +201,7 @@ function crossover(parent1: Individual, parent2: Individual): Individual {
 
   const n = params.boardSize;
 
-  // Create arrays to track the mapping between parent genomes
+  // Create arrays for the child genome
   const childGenome = Array(n).fill(-1);
 
   // Select two random crossover points
@@ -186,27 +213,48 @@ function crossover(parent1: Individual, parent2: Individual): Individual {
     childGenome[i] = parent1.genome[i];
   }
 
-  // Step 2: Create mapping between segments
+  // Step 2: Create mapping between values in the selected segment
   const mapping = new Map();
   for (let i = point1; i <= point2; i++) {
-    mapping.set(parent1.genome[i], parent2.genome[i]);
+    // Map from parent2's value to parent1's value
+    mapping.set(parent2.genome[i], parent1.genome[i]);
   }
 
-  // Step 3: Fill the remaining positions from parent2 using the mapping
+  // Step 3: Fill remaining positions using values from parent2
   for (let i = 0; i < n; i++) {
-    // Skip the positions already filled from parent1
+    // Skip the segment already filled from parent1
     if (i >= point1 && i <= point2) continue;
 
-    // Get the value from parent2
-    let valueToMap = parent2.genome[i];
+    // Get the value from parent2 for this position
+    let valueToUse = parent2.genome[i];
 
-    // If the value is already in the child from the parent1 segment,
-    // follow the mapping until we find an unused value
-    while (childGenome.includes(valueToMap)) {
-      valueToMap = mapping.get(valueToMap) || valueToMap;
+    // Keep mapping the value until we find one that's not used in the child
+    while (childGenome.includes(valueToUse)) {
+      valueToUse = mapping.get(valueToUse);
+
+      // If mapping doesn't exist or creates an infinite loop, break
+      if (valueToUse === undefined) {
+        // Find any unused value
+        for (let j = 0; j < n; j++) {
+          if (!childGenome.includes(j)) {
+            valueToUse = j;
+            break;
+          }
+        }
+        break;
+      }
     }
 
-    childGenome[i] = valueToMap;
+    // Assign the value to the child
+    childGenome[i] = valueToUse;
+  }
+
+  // Final validation to ensure we have a valid permutation
+  if (!validateGenome(childGenome)) {
+    console.error(
+      "PMX crossover produced invalid genome, creating random individual instead"
+    );
+    return createRandomIndividual();
   }
 
   return { genome: childGenome, fitness: 0 };
@@ -215,12 +263,28 @@ function crossover(parent1: Individual, parent2: Individual): Individual {
 // Validate a genome to ensure it's a valid permutation
 function validateGenome(genome: number[]): boolean {
   const n = genome.length;
+
+  // Check if the genome has the expected length
+  if (genome.length !== n) {
+    console.error(`Invalid genome length: expected ${n}, got ${genome.length}`);
+    return false;
+  }
+
   const seen = new Set<number>();
 
   // Check if all values are valid (0 to n-1) and unique
   for (let i = 0; i < n; i++) {
     const val = genome[i];
-    if (val < 0 || val >= n || seen.has(val)) {
+    if (val < 0 || val >= n) {
+      console.error(
+        `Invalid value at position ${i}: ${val} (must be between 0 and ${
+          n - 1
+        })`
+      );
+      return false;
+    }
+    if (seen.has(val)) {
+      console.error(`Duplicate value at position ${i}: ${val} (already seen)`);
       return false;
     }
     seen.add(val);

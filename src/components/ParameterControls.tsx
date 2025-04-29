@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { NQueensParams, SelectionStrategy } from "../types";
 
 interface ParameterControlsProps {
@@ -8,9 +7,6 @@ interface ParameterControlsProps {
   onStart: () => void;
   onPause: () => void;
   onReset: () => void;
-  onSaveConfig: (name: string) => boolean;
-  onLoadConfig: (name: string) => boolean;
-  savedConfigs: Record<string, NQueensParams>;
 }
 
 export default function ParameterControls({
@@ -20,12 +16,7 @@ export default function ParameterControls({
   onStart,
   onPause,
   onReset,
-  onSaveConfig,
-  onLoadConfig,
-  savedConfigs,
 }: ParameterControlsProps) {
-  const [configName, setConfigName] = useState("");
-
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
     key: keyof NQueensParams
@@ -44,15 +35,6 @@ export default function ParameterControls({
       // Convert numerical inputs to numbers
       const numValue = e.target.type === "number" ? Number(value) : value;
       onUpdateParams({ [key]: numValue });
-    }
-  };
-
-  const handleSaveConfig = () => {
-    if (configName.trim()) {
-      const success = onSaveConfig(configName.trim());
-      if (success) {
-        setConfigName("");
-      }
     }
   };
 
@@ -84,13 +66,13 @@ export default function ParameterControls({
             htmlFor="boardSize"
             style={{ display: "block", marginBottom: "4px" }}
           >
-            Board Size (N):
+            Board Size (N): <small>(4-50)</small>
           </label>
           <input
             id="boardSize"
             type="number"
             min="4"
-            max="20"
+            max="50"
             value={params.boardSize}
             onChange={(e) => handleInputChange(e, "boardSize")}
             disabled={isRunning}
@@ -104,13 +86,13 @@ export default function ParameterControls({
             htmlFor="populationSize"
             style={{ display: "block", marginBottom: "4px" }}
           >
-            Population Size:
+            Population Size: <small>(10-1000)</small>
           </label>
           <input
             id="populationSize"
             type="number"
             min="10"
-            max="500"
+            max="1000"
             value={params.populationSize}
             onChange={(e) => handleInputChange(e, "populationSize")}
             disabled={isRunning}
@@ -145,13 +127,13 @@ export default function ParameterControls({
               htmlFor="tournamentSize"
               style={{ display: "block", marginBottom: "4px" }}
             >
-              Tournament Size (K):
+              Tournament Size (K): <small>(2-20)</small>
             </label>
             <input
               id="tournamentSize"
               type="number"
               min="2"
-              max="10"
+              max="20"
               value={params.tournamentSize}
               onChange={(e) => handleInputChange(e, "tournamentSize")}
               disabled={isRunning}
@@ -214,13 +196,13 @@ export default function ParameterControls({
             htmlFor="maxGenerations"
             style={{ display: "block", marginBottom: "4px" }}
           >
-            Max Generations:
+            Max Generations: <small>(10-100000)</small>
           </label>
           <input
             id="maxGenerations"
             type="number"
             min="10"
-            max="10000"
+            max="100000"
             value={params.maxGenerations}
             onChange={(e) => handleInputChange(e, "maxGenerations")}
             disabled={isRunning}
@@ -273,65 +255,6 @@ export default function ParameterControls({
         >
           Reset
         </button>
-      </div>
-
-      {/* Configuration Management */}
-      <div
-        style={{
-          marginTop: "16px",
-          borderTop: "1px solid #ddd",
-          paddingTop: "16px",
-        }}
-      >
-        <h3 style={{ margin: "0 0 8px 0" }}>Configuration</h3>
-
-        <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-          <input
-            type="text"
-            placeholder="Configuration name"
-            value={configName}
-            onChange={(e) => setConfigName(e.target.value)}
-            style={{ flex: 1, padding: "8px" }}
-          />
-          <button
-            onClick={handleSaveConfig}
-            disabled={!configName.trim()}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: "#2196f3",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: configName.trim() ? "pointer" : "not-allowed",
-              opacity: configName.trim() ? 1 : 0.7,
-            }}
-          >
-            Save
-          </button>
-        </div>
-
-        {Object.keys(savedConfigs).length > 0 && (
-          <div>
-            <h4 style={{ margin: "0 0 8px 0" }}>Saved Configurations</h4>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-              {Object.keys(savedConfigs).map((name) => (
-                <button
-                  key={name}
-                  onClick={() => onLoadConfig(name)}
-                  style={{
-                    padding: "4px 8px",
-                    backgroundColor: "#e0e0e0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -39,6 +39,54 @@ function sanitizeParams(
   return result;
 }
 
+// Validate and constrain parameter values to reasonable limits
+function validateParams(
+  params: Partial<NQueensParams>
+): Partial<NQueensParams> {
+  const validated = { ...params };
+
+  // Board size: min 4, max 50 (larger boards become computationally expensive)
+  if (validated.boardSize !== undefined) {
+    validated.boardSize = Math.max(4, Math.min(50, validated.boardSize));
+  }
+
+  // Population size: min 10, max 1000
+  if (validated.populationSize !== undefined) {
+    validated.populationSize = Math.max(
+      10,
+      Math.min(1000, validated.populationSize)
+    );
+  }
+
+  // Tournament size: min 2, max 20
+  if (validated.tournamentSize !== undefined) {
+    validated.tournamentSize = Math.max(
+      2,
+      Math.min(20, validated.tournamentSize)
+    );
+  }
+
+  // Crossover rate: must be between 0 and 1
+  if (validated.crossoverRate !== undefined) {
+    validated.crossoverRate = Math.max(0, Math.min(1, validated.crossoverRate));
+  }
+
+  // Mutation rate: must be between 0 and 1
+  if (validated.mutationRate !== undefined) {
+    validated.mutationRate = Math.max(0, Math.min(1, validated.mutationRate));
+  }
+
+  // Max generations: min 10, max 100000
+  if (validated.maxGenerations !== undefined) {
+    validated.maxGenerations = Math.max(
+      10,
+      Math.min(100000, validated.maxGenerations)
+    );
+  }
+
+  return validated;
+}
+
 export default function useNQueensWorker() {
   // Worker and state
   const workerRef = useRef<Worker | null>(null);
@@ -95,9 +143,10 @@ export default function useNQueensWorker() {
 
   // Update parameters and reset
   const updateParams = (newParams: Partial<NQueensParams>) => {
-    // Ensure numeric values are actually numbers
+    // Ensure numeric values are actually numbers and within valid ranges
     const sanitizedParams = sanitizeParams(newParams);
-    const updatedParams = { ...params, ...sanitizedParams };
+    const validatedParams = validateParams(sanitizedParams);
+    const updatedParams = { ...params, ...validatedParams };
     setParams(updatedParams);
 
     if (workerRef.current) {
@@ -137,62 +186,6 @@ export default function useNQueensWorker() {
     }
   };
 
-  // Save current configuration to localStorage
-  const saveConfig = (name: string) => {
-    try {
-      const savedConfigs = JSON.parse(
-        localStorage.getItem("nQueensConfigs") || "{}"
-      );
-      savedConfigs[name] = params;
-      localStorage.setItem("nQueensConfigs", JSON.stringify(savedConfigs));
-      return true;
-    } catch (err) {
-      setError(
-        `Failed to save configuration: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
-      return false;
-    }
-  };
-
-  // Load configuration from localStorage
-  const loadConfig = (name: string) => {
-    try {
-      const savedConfigs = JSON.parse(
-        localStorage.getItem("nQueensConfigs") || "{}"
-      );
-      const config = savedConfigs[name];
-      if (config) {
-        // Ensure numeric values are actually numbers after loading from localStorage
-        updateParams(sanitizeParams(config));
-        return true;
-      }
-      return false;
-    } catch (err) {
-      setError(
-        `Failed to load configuration: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
-      return false;
-    }
-  };
-
-  // Get all saved configurations
-  const getSavedConfigs = () => {
-    try {
-      return JSON.parse(localStorage.getItem("nQueensConfigs") || "{}");
-    } catch (err) {
-      setError(
-        `Failed to retrieve saved configurations: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
-      return {};
-    }
-  };
-
   return {
     isRunning,
     params,
@@ -203,8 +196,5 @@ export default function useNQueensWorker() {
     start,
     pause,
     reset,
-    saveConfig,
-    loadConfig,
-    getSavedConfigs,
   };
 }
