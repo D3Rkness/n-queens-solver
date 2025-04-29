@@ -37,6 +37,9 @@ export default function ParameterControls({
 
     if (key === "selectionStrategy") {
       onUpdateParams({ [key]: value as SelectionStrategy });
+    } else if (key === "crossoverRate" || key === "mutationRate") {
+      // Always ensure rates are numbers
+      onUpdateParams({ [key]: Number(value) });
     } else {
       // Convert numerical inputs to numbers
       const numValue = e.target.type === "number" ? Number(value) : value;
@@ -163,7 +166,10 @@ export default function ParameterControls({
             htmlFor="crossoverRate"
             style={{ display: "block", marginBottom: "4px" }}
           >
-            Crossover Rate: {params.crossoverRate.toFixed(2)}
+            Crossover Rate:{" "}
+            {typeof params.crossoverRate === "number"
+              ? params.crossoverRate.toFixed(2)
+              : params.crossoverRate}
           </label>
           <input
             id="crossoverRate"
@@ -184,7 +190,10 @@ export default function ParameterControls({
             htmlFor="mutationRate"
             style={{ display: "block", marginBottom: "4px" }}
           >
-            Mutation Rate: {params.mutationRate.toFixed(2)}
+            Mutation Rate:{" "}
+            {typeof params.mutationRate === "number"
+              ? params.mutationRate.toFixed(2)
+              : params.mutationRate}
           </label>
           <input
             id="mutationRate"
