@@ -17,6 +17,28 @@ const defaultParams: NQueensParams = {
   maxGenerations: 1000,
 };
 
+// Ensure numeric parameters are actually numbers
+function sanitizeParams(
+  params: Partial<NQueensParams>
+): Partial<NQueensParams> {
+  const result = { ...params };
+
+  if (result.boardSize !== undefined)
+    result.boardSize = Number(result.boardSize);
+  if (result.populationSize !== undefined)
+    result.populationSize = Number(result.populationSize);
+  if (result.tournamentSize !== undefined)
+    result.tournamentSize = Number(result.tournamentSize);
+  if (result.crossoverRate !== undefined)
+    result.crossoverRate = Number(result.crossoverRate);
+  if (result.mutationRate !== undefined)
+    result.mutationRate = Number(result.mutationRate);
+  if (result.maxGenerations !== undefined)
+    result.maxGenerations = Number(result.maxGenerations);
+
+  return result;
+}
+
 export default function useNQueensWorker() {
   // Worker and state
   const workerRef = useRef<Worker | null>(null);
@@ -73,7 +95,9 @@ export default function useNQueensWorker() {
 
   // Update parameters and reset
   const updateParams = (newParams: Partial<NQueensParams>) => {
-    const updatedParams = { ...params, ...newParams };
+    // Ensure numeric values are actually numbers
+    const sanitizedParams = sanitizeParams(newParams);
+    const updatedParams = { ...params, ...sanitizedParams };
     setParams(updatedParams);
 
     if (workerRef.current) {
@@ -140,7 +164,8 @@ export default function useNQueensWorker() {
       );
       const config = savedConfigs[name];
       if (config) {
-        updateParams(config);
+        // Ensure numeric values are actually numbers after loading from localStorage
+        updateParams(sanitizeParams(config));
         return true;
       }
       return false;
